@@ -2,44 +2,36 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Geometry Dash HTML</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geometry Dash Web</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <style>
 html,body{
   margin:0;
-  background:#0b0b0b;
+  background:#000;
   overflow:hidden;
-  touch-action: manipulation;
+  touch-action:manipulation;
   user-select:none;
-  font-family:Arial;
 }
-
-canvas{
-  display:block;
-  margin:auto;
-  background:linear-gradient(#111,#050505);
-}
-
+canvas{display:block;margin:auto}
 #ui{
   position:fixed;
-  top:12px;
+  top:10px;
   left:50%;
   transform:translateX(-50%);
-  color:#00ffff;
+  color:#fff;
+  font-family:Arial;
   font-size:18px;
   text-shadow:0 0 10px cyan;
 }
-
 #msg{
   position:fixed;
   inset:0;
   display:flex;
-  align-items:center;
   justify-content:center;
+  align-items:center;
+  font-size:28px;
   color:#fff;
-  font-size:26px;
   background:rgba(0,0,0,.6);
-  text-shadow:0 0 15px cyan;
   visibility:hidden;
 }
 </style>
@@ -50,150 +42,11 @@ canvas{
 <div id="msg">CLICK / TAP TO RESTART</div>
 <canvas id="game"></canvas>
 
-<!-- AUDIO -->
-<audio id="music" loop>
-  <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_9e6e98b18d.mp3">
-</audio>
-<audio id="jumpSound">
-  <source src="https://cdn.pixabay.com/audio/2022/03/10/audio_61b3f28c34.mp3">
-</audio>
+<audio id="music" src="assets/music.mp3" loop></audio>
+<audio id="jump" src="assets/jump.wav"></audio>
+<audio id="death" src="assets/death.wav"></audio>
 
-<script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-canvas.width = innerWidth;
-canvas.height = 300;
-
-let running = false;
-let dead = false;
-let progress = 0;
-
-const gravity = 0.9;
-const jumpForce = -14;
-const speed = 6;
-
-const player = {
-  x:80,
-  y:200,
-  size:26,
-  dy:0,
-  rotation:0
-};
-
-// MAP PATTERN (x, height)
-const map = [
-  400,700,950,1200,1500,1800,2100,2400,2800,3100
-];
-
-const spikes = map.map(x=>({x,y:230,w:30,h:40}));
-
-function reset(){
-  player.y = 200;
-  player.dy = 0;
-  player.rotation = 0;
-  spikes.forEach((s,i)=>s.x = map[i]);
-  progress = 0;
-  dead = false;
-  document.getElementById("msg").style.visibility="hidden";
-}
-
-function jump(){
-  if(!running){
-    document.getElementById("music").play();
-    running = true;
-  }
-  if(player.y>=230){
-    player.dy = jumpForce;
-    document.getElementById("jumpSound").currentTime=0;
-    document.getElementById("jumpSound").play();
-  }
-}
-
-function drawPlayer(){
-  ctx.save();
-  ctx.translate(player.x+13,player.y+13);
-  ctx.rotate(player.rotation);
-  ctx.shadowColor="#00ffff";
-  ctx.shadowBlur=15;
-  ctx.fillStyle="#00ffff";
-  ctx.fillRect(-13,-13,26,26);
-  ctx.restore();
-}
-
-function drawSpike(s){
-  ctx.shadowColor="#ff004c";
-  ctx.shadowBlur=15;
-  ctx.fillStyle="#ff004c";
-  ctx.beginPath();
-  ctx.moveTo(s.x,s.y+s.h);
-  ctx.lineTo(s.x+s.w/2,s.y);
-  ctx.lineTo(s.x+s.w,s.y+s.h);
-  ctx.closePath();
-  ctx.fill();
-}
-
-function update(){
-  if(dead) return;
-
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  player.dy+=gravity;
-  player.y+=player.dy;
-  player.rotation+=0.1;
-
-  if(player.y>230){
-    player.y=230;
-    player.dy=0;
-  }
-
-  spikes.forEach(s=>{
-    s.x-=speed;
-    drawSpike(s);
-
-    if(
-      player.x < s.x+s.w &&
-      player.x+player.size > s.x &&
-      player.y < s.y+s.h &&
-      player.y+player.size > s.y
-    ){
-      die();
-    }
-  });
-
-  drawPlayer();
-
-  progress+=0.04;
-  document.getElementById("ui").innerText=Math.floor(progress)+"%";
-
-  requestAnimationFrame(update);
-}
-
-function die(){
-  dead=true;
-  document.getElementById("msg").style.visibility="visible";
-  document.getElementById("music").pause();
-}
-
-addEventListener("keydown",e=>{
-  if(e.code==="Space") jump();
-});
-addEventListener("click",()=>{
-  if(dead){
-    reset();
-    update();
-  }else jump();
-});
-
-addEventListener("touchstart",e=>{
-  e.preventDefault();
-  if(dead){
-    reset();
-    update();
-  }else jump();
-});
-
-update();
-</script>
-
+<script src="game.js"></script>
 </body>
 </html>
+
