@@ -2,130 +2,159 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Амик 🎀</title>
-
+<title>FPS Training Map</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{
-  font-family: system-ui, sans-serif;
-  height:100vh;
-  background:url("https://r2.guns.lol/49b7d70e-ef85-42e4-804b-1087920b7457.webp") center/cover no-repeat;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:#111;
-}
-
-/* click to enter */
-#enter{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.55);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:32px;
-  font-weight:700;
-  color:#fff;
-  cursor:pointer;
-  z-index:10;
-}
-
-/* card */
-.card{
-  display:none;
-  width:380px;
-  background:rgba(255,255,255,.55);
-  backdrop-filter: blur(30px);
-  border-radius:20px;
-  padding:30px;
-  text-align:center;
-  box-shadow:0 30px 80px rgba(0,0,0,.25);
-}
-
-/* avatar */
-.avatar{
-  width:120px;
-  height:120px;
-  border-radius:50%;
-  background:#ddd;
-  margin:0 auto 15px;
-}
-
-/* name */
-.name{
-  font-size:36px;
-  font-weight:600;
-}
-
-/* subtitle */
-.sub{
-  margin-top:6px;
-  font-size:14px;
-  opacity:.7;
-}
-
-/* socials */
-.socials{
-  display:flex;
-  justify-content:center;
-  gap:18px;
-  margin-top:25px;
-}
-
-.socials a{
-  width:42px;
-  height:42px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border-radius:12px;
-  background:rgba(0,0,0,.12);
-  text-decoration:none;
-  color:#000;
-  font-size:20px;
-  transition:.2s;
-}
-.socials a:hover{
-  background:rgba(0,0,0,.25);
-}
-
-/* views */
-.views{
-  position:fixed;
-  left:15px;
-  bottom:12px;
-  font-size:14px;
-  opacity:.7;
-}
+  body { margin:0; overflow:hidden; background:#000; cursor:crosshair }
+  canvas { display:block }
+  #info {
+    position:fixed; top:10px; left:10px;
+    color:#0f0; font-family:monospace;
+    background:rgba(0,0,0,.6); padding:6px 10px;
+  }
 </style>
 </head>
-
 <body>
-
-<div id="enter">click to enter...</div>
-
-<div class="card" id="card">
-  <div class="avatar"></div>
-  <div class="name">Амик 🎀</div>
-  <div class="sub">Discord: phamminhnhat__</div>
-
-  <div class="socials">
-    <a href="https://facebook.com/profile.php?id=100067904544109" target="_blank">📘</a>
-    <a href="https://open.spotify.com/user/31xk6ptv2ecltcov5lqmxaaz76ee" target="_blank">🎵</a>
-    <a href="https://discord.gg/P9yeTvwKjB" target="_blank">💬</a>
-  </div>
-</div>
-
-<div class="views">👁 6736</div>
+<canvas id="c"></canvas>
+<div id="info">Click để vào game<br>WASD di chuyển · Chuột xoay · Click bắn</div>
 
 <script>
-document.getElementById("enter").onclick = () => {
-  document.getElementById("enter").style.display = "none";
-  document.getElementById("card").style.display = "block";
-};
-</script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+resize();
+window.onresize = resize;
 
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+
+const map = [
+  "1111111111",
+  "1000000001",
+  "1011111101",
+  "1000000001",
+  "1000110001",
+  "1000000001",
+  "1111111111"
+];
+
+const TILE = 64;
+const FOV = Math.PI / 3;
+const RAYS = 300;
+const DEPTH = 800;
+
+const player = {
+  x: 2.5 * TILE,
+  y: 2.5 * TILE,
+  a: 0,
+  speed: 2
+};
+
+const keys = {};
+onkeydown = e => keys[e.key.toLowerCase()] = true;
+onkeyup   = e => keys[e.key.toLowerCase()] = false;
+
+canvas.onclick = () => canvas.requestPointerLock();
+
+document.addEventListener("mousemove", e=>{
+  if(document.pointerLockElement === canvas){
+    player.a += e.movementX * 0.002;
+  }
+});
+
+const targets = [
+  {x:5.5*TILE, y:2.5*TILE, alive:true},
+  {x:7.5*TILE, y:4.5*TILE, alive:true}
+];
+
+function wall(x,y){
+  const mx = Math.floor(x/TILE);
+  const my = Math.floor(y/TILE);
+  return map[my]?.[mx] === "1";
+}
+
+function update(){
+  let nx = player.x;
+  let ny = player.y;
+
+  if(keys["w"]){ nx += Math.cos(player.a)*player.speed; ny += Math.sin(player.a)*player.speed }
+  if(keys["s"]){ nx -= Math.cos(player.a)*player.speed; ny -= Math.sin(player.a)*player.speed }
+  if(keys["a"]){ nx += Math.cos(player.a-Math.PI/2)*player.speed; ny += Math.sin(player.a-Math.PI/2)*player.speed }
+  if(keys["d"]){ nx += Math.cos(player.a+Math.PI/2)*player.speed; ny += Math.sin(player.a+Math.PI/2)*player.speed }
+
+  if(!wall(nx, player.y)) player.x = nx;
+  if(!wall(player.x, ny)) player.y = ny;
+}
+
+canvas.addEventListener("mousedown", ()=>{
+  const ax = Math.cos(player.a);
+  const ay = Math.sin(player.a);
+  targets.forEach(t=>{
+    if(!t.alive) return;
+    const dx = t.x - player.x;
+    const dy = t.y - player.y;
+    const dist = Math.hypot(dx,dy);
+    const dot = (dx/dist)*ax + (dy/dist)*ay;
+    if(dot > 0.98 && dist < 400){
+      t.alive = false;
+    }
+  });
+});
+
+function draw(){
+  ctx.fillStyle="#222";
+  ctx.fillRect(0,0,canvas.width,canvas.height/2);
+  ctx.fillStyle="#555";
+  ctx.fillRect(0,canvas.height/2,canvas.width,canvas.height/2);
+
+  for(let i=0;i<RAYS;i++){
+    const rayA = player.a - FOV/2 + FOV*i/RAYS;
+    for(let d=0; d<DEPTH; d+=4){
+      const rx = player.x + Math.cos(rayA)*d;
+      const ry = player.y + Math.sin(rayA)*d;
+      if(wall(rx,ry)){
+        const h = (TILE*600)/(d*Math.cos(rayA-player.a));
+        ctx.fillStyle = `rgb(${200-d/4},${200-d/4},${200-d/4})`;
+        ctx.fillRect(
+          i*(canvas.width/RAYS),
+          canvas.height/2-h/2,
+          canvas.width/RAYS+1,
+          h
+        );
+        break;
+      }
+    }
+  }
+
+  targets.forEach(t=>{
+    if(!t.alive) return;
+    const dx = t.x-player.x;
+    const dy = t.y-player.y;
+    const dist = Math.hypot(dx,dy);
+    const ang = Math.atan2(dy,dx)-player.a;
+    if(Math.abs(ang) < FOV/2){
+      const size = 600/dist;
+      const x = canvas.width/2 + Math.tan(ang)*canvas.width;
+      ctx.fillStyle="red";
+      ctx.fillRect(x-size/2,canvas.height/2-size,size,size);
+    }
+  });
+
+  ctx.strokeStyle="#fff";
+  ctx.beginPath();
+  ctx.moveTo(canvas.width/2-5,canvas.height/2);
+  ctx.lineTo(canvas.width/2+5,canvas.height/2);
+  ctx.moveTo(canvas.width/2,canvas.height/2-5);
+  ctx.lineTo(canvas.width/2,canvas.height/2+5);
+  ctx.stroke();
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
 </body>
 </html>
