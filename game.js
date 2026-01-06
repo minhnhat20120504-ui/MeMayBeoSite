@@ -16,8 +16,9 @@ const img = {};
 ["cube","spike","block","orb_yellow","pad_yellow","bg"]
 .forEach(n=>{
   img[n]=new Image();
-  img[n].src="assets/"+n+".png";
+  img[n].src = n + ".png"; // load cùng thư mục
 });
+
 
 const player={
   x:80,y:GROUND,size:28,dy:0,rot:0
