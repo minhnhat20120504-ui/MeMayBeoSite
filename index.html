@@ -2,159 +2,198 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>FPS Training Map</title>
+<title>Geometry Dash HTML</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  body { margin:0; overflow:hidden; background:#000; cursor:crosshair }
-  canvas { display:block }
-  #info {
-    position:fixed; top:10px; left:10px;
-    color:#0f0; font-family:monospace;
-    background:rgba(0,0,0,.6); padding:6px 10px;
-  }
+html,body{
+  margin:0;
+  background:#0b0b0b;
+  overflow:hidden;
+  touch-action: manipulation;
+  user-select:none;
+  font-family:Arial;
+}
+
+canvas{
+  display:block;
+  margin:auto;
+  background:linear-gradient(#111,#050505);
+}
+
+#ui{
+  position:fixed;
+  top:12px;
+  left:50%;
+  transform:translateX(-50%);
+  color:#00ffff;
+  font-size:18px;
+  text-shadow:0 0 10px cyan;
+}
+
+#msg{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  font-size:26px;
+  background:rgba(0,0,0,.6);
+  text-shadow:0 0 15px cyan;
+  visibility:hidden;
+}
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<div id="info">Click để vào game<br>WASD di chuyển · Chuột xoay · Click bắn</div>
+
+<div id="ui">0%</div>
+<div id="msg">CLICK / TAP TO RESTART</div>
+<canvas id="game"></canvas>
+
+<!-- AUDIO -->
+<audio id="music" loop>
+  <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_9e6e98b18d.mp3">
+</audio>
+<audio id="jumpSound">
+  <source src="https://cdn.pixabay.com/audio/2022/03/10/audio_61b3f28c34.mp3">
+</audio>
 
 <script>
-const canvas = document.getElementById("c");
+const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-resize();
-window.onresize = resize;
+canvas.width = innerWidth;
+canvas.height = 300;
 
-function resize(){
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-}
+let running = false;
+let dead = false;
+let progress = 0;
 
-const map = [
-  "1111111111",
-  "1000000001",
-  "1011111101",
-  "1000000001",
-  "1000110001",
-  "1000000001",
-  "1111111111"
-];
-
-const TILE = 64;
-const FOV = Math.PI / 3;
-const RAYS = 300;
-const DEPTH = 800;
+const gravity = 0.9;
+const jumpForce = -14;
+const speed = 6;
 
 const player = {
-  x: 2.5 * TILE,
-  y: 2.5 * TILE,
-  a: 0,
-  speed: 2
+  x:80,
+  y:200,
+  size:26,
+  dy:0,
+  rotation:0
 };
 
-const keys = {};
-onkeydown = e => keys[e.key.toLowerCase()] = true;
-onkeyup   = e => keys[e.key.toLowerCase()] = false;
-
-canvas.onclick = () => canvas.requestPointerLock();
-
-document.addEventListener("mousemove", e=>{
-  if(document.pointerLockElement === canvas){
-    player.a += e.movementX * 0.002;
-  }
-});
-
-const targets = [
-  {x:5.5*TILE, y:2.5*TILE, alive:true},
-  {x:7.5*TILE, y:4.5*TILE, alive:true}
+// MAP PATTERN (x, height)
+const map = [
+  400,700,950,1200,1500,1800,2100,2400,2800,3100
 ];
 
-function wall(x,y){
-  const mx = Math.floor(x/TILE);
-  const my = Math.floor(y/TILE);
-  return map[my]?.[mx] === "1";
+const spikes = map.map(x=>({x,y:230,w:30,h:40}));
+
+function reset(){
+  player.y = 200;
+  player.dy = 0;
+  player.rotation = 0;
+  spikes.forEach((s,i)=>s.x = map[i]);
+  progress = 0;
+  dead = false;
+  document.getElementById("msg").style.visibility="hidden";
+}
+
+function jump(){
+  if(!running){
+    document.getElementById("music").play();
+    running = true;
+  }
+  if(player.y>=230){
+    player.dy = jumpForce;
+    document.getElementById("jumpSound").currentTime=0;
+    document.getElementById("jumpSound").play();
+  }
+}
+
+function drawPlayer(){
+  ctx.save();
+  ctx.translate(player.x+13,player.y+13);
+  ctx.rotate(player.rotation);
+  ctx.shadowColor="#00ffff";
+  ctx.shadowBlur=15;
+  ctx.fillStyle="#00ffff";
+  ctx.fillRect(-13,-13,26,26);
+  ctx.restore();
+}
+
+function drawSpike(s){
+  ctx.shadowColor="#ff004c";
+  ctx.shadowBlur=15;
+  ctx.fillStyle="#ff004c";
+  ctx.beginPath();
+  ctx.moveTo(s.x,s.y+s.h);
+  ctx.lineTo(s.x+s.w/2,s.y);
+  ctx.lineTo(s.x+s.w,s.y+s.h);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function update(){
-  let nx = player.x;
-  let ny = player.y;
+  if(dead) return;
 
-  if(keys["w"]){ nx += Math.cos(player.a)*player.speed; ny += Math.sin(player.a)*player.speed }
-  if(keys["s"]){ nx -= Math.cos(player.a)*player.speed; ny -= Math.sin(player.a)*player.speed }
-  if(keys["a"]){ nx += Math.cos(player.a-Math.PI/2)*player.speed; ny += Math.sin(player.a-Math.PI/2)*player.speed }
-  if(keys["d"]){ nx += Math.cos(player.a+Math.PI/2)*player.speed; ny += Math.sin(player.a+Math.PI/2)*player.speed }
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  if(!wall(nx, player.y)) player.x = nx;
-  if(!wall(player.x, ny)) player.y = ny;
-}
+  player.dy+=gravity;
+  player.y+=player.dy;
+  player.rotation+=0.1;
 
-canvas.addEventListener("mousedown", ()=>{
-  const ax = Math.cos(player.a);
-  const ay = Math.sin(player.a);
-  targets.forEach(t=>{
-    if(!t.alive) return;
-    const dx = t.x - player.x;
-    const dy = t.y - player.y;
-    const dist = Math.hypot(dx,dy);
-    const dot = (dx/dist)*ax + (dy/dist)*ay;
-    if(dot > 0.98 && dist < 400){
-      t.alive = false;
-    }
-  });
-});
-
-function draw(){
-  ctx.fillStyle="#222";
-  ctx.fillRect(0,0,canvas.width,canvas.height/2);
-  ctx.fillStyle="#555";
-  ctx.fillRect(0,canvas.height/2,canvas.width,canvas.height/2);
-
-  for(let i=0;i<RAYS;i++){
-    const rayA = player.a - FOV/2 + FOV*i/RAYS;
-    for(let d=0; d<DEPTH; d+=4){
-      const rx = player.x + Math.cos(rayA)*d;
-      const ry = player.y + Math.sin(rayA)*d;
-      if(wall(rx,ry)){
-        const h = (TILE*600)/(d*Math.cos(rayA-player.a));
-        ctx.fillStyle = `rgb(${200-d/4},${200-d/4},${200-d/4})`;
-        ctx.fillRect(
-          i*(canvas.width/RAYS),
-          canvas.height/2-h/2,
-          canvas.width/RAYS+1,
-          h
-        );
-        break;
-      }
-    }
+  if(player.y>230){
+    player.y=230;
+    player.dy=0;
   }
 
-  targets.forEach(t=>{
-    if(!t.alive) return;
-    const dx = t.x-player.x;
-    const dy = t.y-player.y;
-    const dist = Math.hypot(dx,dy);
-    const ang = Math.atan2(dy,dx)-player.a;
-    if(Math.abs(ang) < FOV/2){
-      const size = 600/dist;
-      const x = canvas.width/2 + Math.tan(ang)*canvas.width;
-      ctx.fillStyle="red";
-      ctx.fillRect(x-size/2,canvas.height/2-size,size,size);
+  spikes.forEach(s=>{
+    s.x-=speed;
+    drawSpike(s);
+
+    if(
+      player.x < s.x+s.w &&
+      player.x+player.size > s.x &&
+      player.y < s.y+s.h &&
+      player.y+player.size > s.y
+    ){
+      die();
     }
   });
 
-  ctx.strokeStyle="#fff";
-  ctx.beginPath();
-  ctx.moveTo(canvas.width/2-5,canvas.height/2);
-  ctx.lineTo(canvas.width/2+5,canvas.height/2);
-  ctx.moveTo(canvas.width/2,canvas.height/2-5);
-  ctx.lineTo(canvas.width/2,canvas.height/2+5);
-  ctx.stroke();
+  drawPlayer();
+
+  progress+=0.04;
+  document.getElementById("ui").innerText=Math.floor(progress)+"%";
+
+  requestAnimationFrame(update);
 }
 
-function loop(){
-  update();
-  draw();
-  requestAnimationFrame(loop);
+function die(){
+  dead=true;
+  document.getElementById("msg").style.visibility="visible";
+  document.getElementById("music").pause();
 }
-loop();
+
+addEventListener("keydown",e=>{
+  if(e.code==="Space") jump();
+});
+addEventListener("click",()=>{
+  if(dead){
+    reset();
+    update();
+  }else jump();
+});
+
+addEventListener("touchstart",e=>{
+  e.preventDefault();
+  if(dead){
+    reset();
+    update();
+  }else jump();
+});
+
+update();
 </script>
+
 </body>
 </html>
